@@ -1,9 +1,18 @@
 FROM golang:1.23 AS build
 
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN go mod tidy
+
 COPY . /src
-RUN cd /src && CGO_ENABLED=0 go build -o /hello /src/server.go
+
+RUN CGO_ENABLED=0 go build -o /hello ./cmd/apiserver
 
 FROM alpine:3.20
+
+#FIXME need to be removed, only for personal test
+COPY --from=build /src/config.yaml /config.yaml
 
 COPY --from=build /hello /hello
 
