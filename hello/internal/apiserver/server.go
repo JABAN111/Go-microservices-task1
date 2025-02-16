@@ -16,6 +16,7 @@ func NewServer(config *Config) *Server {
 		http.NewServeMux(),
 		config,
 	}
+
 	return &s
 }
 
@@ -24,7 +25,7 @@ func (s *Server) handlePing() http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		_, err := fmt.Fprintf(w, "pong\n")
 		if err != nil {
-			log.Panicf("failed to write pong: %v", err)
+			log.Fatalf("failed to write pong: %v", err)
 			return
 		}
 	}
@@ -38,7 +39,7 @@ func (s *Server) handleHello() http.HandlerFunc {
 			w.WriteHeader(http.StatusBadRequest)
 			_, err := fmt.Fprintf(w, "empty name\n")
 			if err != nil {
-				log.Panicf("failed to write hello: %v", err)
+				log.Fatalf("failed to write hello: %v", err)
 			}
 			return
 		}
@@ -46,7 +47,7 @@ func (s *Server) handleHello() http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		_, err := fmt.Fprintf(w, "Hello, %s!\n", name)
 		if err != nil {
-			log.Panicf("failed to write hello: %v", err)
+			log.Fatalf("failed to write hello: %v", err)
 		}
 
 	}
@@ -55,10 +56,9 @@ func (s *Server) handleHello() http.HandlerFunc {
 func addRoutes(
 	s *Server,
 ) {
-
 	s.mux.HandleFunc("GET /ping", s.handlePing())
 	s.mux.HandleFunc("GET /hello", s.handleHello())
-	//s.mux.Handle("/", http.NotFoundHandler())
+	s.mux.Handle("/", http.NotFoundHandler())
 }
 
 func (s *Server) Run() {
