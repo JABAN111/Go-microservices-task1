@@ -7,6 +7,8 @@ import (
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 )
 
 type Storage struct {
@@ -47,6 +49,15 @@ func (s *Storage) Save(file multipart.File, header *multipart.FileHeader) error 
 	return nil
 }
 
+func (s *Storage) Get(filename string) (*os.File, error) {
+	filePath := filepath.Join(s.path, filename)
+	outFile, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	return outFile, nil
+}
+
 func (s *Storage) Update(file multipart.File, header *multipart.FileHeader) error {
 	filePath := filepath.Join(s.path, header.Filename)
 	if _, err := os.Stat(filePath); err != nil {
@@ -58,6 +69,49 @@ func (s *Storage) Update(file multipart.File, header *multipart.FileHeader) erro
 	}
 
 	return nil
+}
+
+func (s *Storage) Delete(filename string) error {
+	filePath := filepath.Join(s.path, filename)
+
+	err := os.Remove(filePath)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Storage) GetFiles() ([]string, error) {
+	files, err := os.ReadDir(s.path)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]string, 0, len(files))
+	for _, f := range files {
+		if !f.IsDir() {
+			res = append(res, f.Name())
+		}
+	}
+
+	sort.Strings(res)
+
+	return res, nil
+}
+
+func (s *Storage) GetFilesAsString() (string, error) {
+	res, err := s.GetFiles()
+	if err != nil {
+		return "", err
+	}
+
+	var sb strings.Builder
+	for _, v := range res {
+		sb.WriteString(v)
+		sb.WriteString("\n")
+	}
+	return sb.String(), nil
 }
 
 func closeFile(f *os.File) {

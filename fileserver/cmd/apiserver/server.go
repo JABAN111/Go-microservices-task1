@@ -44,7 +44,6 @@ func parseConfig() (*apiserver.Config, error) {
 }
 
 func main() {
-	//TODO возможно стоит вынести это в какой-нибудь отдельный модуль для обоих микросервис
 	flag.Parse()
 
 	config, err := parseConfig()

@@ -16,4 +16,4 @@ FROM alpine:3.20
 COPY --from=build /fileserver /fileserver
 RUN apk add curl
 
-#ENTRYPOINT [ "/fileserver" ]
+ENTRYPOINT [ "/fileserver" ]
