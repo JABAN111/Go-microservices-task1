@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"mime/multipart"
@@ -10,6 +11,15 @@ import (
 
 type Storage struct {
 	path string
+}
+
+type fileErr struct {
+	filepath string
+	msg      string
+}
+
+func (e *fileErr) Error() string {
+	return fmt.Sprintf("Error with file: %s, reason: %s", e.filepath, e.msg)
 }
 
 func NewStorage(path string) (*Storage, error) {
@@ -22,7 +32,7 @@ func NewStorage(path string) (*Storage, error) {
 	}, nil
 }
 
-// TODO
+// TODO process duplicate
 func (s *Storage) Save(file multipart.File, header *multipart.FileHeader) error {
 	filePath := filepath.Join(s.path, header.Filename)
 	outFile, err := os.Create(filePath)
@@ -31,6 +41,19 @@ func (s *Storage) Save(file multipart.File, header *multipart.FileHeader) error 
 		return err
 	}
 	if _, err := io.Copy(outFile, file); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Storage) Update(file multipart.File, header *multipart.FileHeader) error {
+	filePath := filepath.Join(s.path, header.Filename)
+	if _, err := os.Stat(filePath); err != nil {
+		return &fileErr{filepath: filePath, msg: "File are not exists"}
+	}
+
+	if err := s.Save(file, header); err != nil {
 		return err
 	}
 
