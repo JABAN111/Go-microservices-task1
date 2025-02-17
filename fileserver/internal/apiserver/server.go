@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
+	"os"
 
 	"yadro.com/course/internal/storage"
 )
@@ -54,7 +56,12 @@ func (s *Server) handleSaveFile() http.HandlerFunc {
 		}
 		defer safeClose(file)
 
-		if err := s.storage.Save(file, header); err != nil {
+		osFile, err := convertToOSFile(file)
+		defer safeClose(osFile)
+		if err != nil {
+			http.Error(w, "Bad Request", http.StatusInternalServerError)
+		}
+		if err := s.storage.Save(osFile, header.Filename); err != nil {
 			http.Error(w, "Conflict", http.StatusConflict)
 			return
 		}
@@ -77,7 +84,12 @@ func (s *Server) handleUpdateFile() http.HandlerFunc {
 		}
 		defer safeClose(file)
 
-		if err := s.storage.Update(file, header); err != nil {
+		osFile, err := convertToOSFile(file)
+		defer safeClose(osFile)
+		if err != nil {
+			http.Error(w, "Bad Request", http.StatusInternalServerError)
+		}
+		if err := s.storage.Update(osFile, header.Filename); err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
@@ -144,4 +156,29 @@ func (s *Server) Run() {
 	serverAddress := s.config.BindHost + ":" + s.config.BindPort
 	log.Printf("File server started on address %s", serverAddress)
 	log.Fatal(http.ListenAndServe(serverAddress, s.mux))
+}
+
+func convertToOSFile(mf multipart.File) (*os.File, error) {
+	tmpFile, err := os.CreateTemp("", "upload-*")
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := io.Copy(tmpFile, mf); err != nil {
+		safeClose(tmpFile)
+		if err := os.Remove(tmpFile.Name()); err != nil {
+			return nil, err
+		}
+		return nil, err
+	}
+
+	if _, err := tmpFile.Seek(0, 0); err != nil {
+		safeClose(tmpFile)
+		if err := os.Remove(tmpFile.Name()); err != nil {
+			return nil, err
+		}
+		return nil, err
+	}
+
+	return tmpFile, nil
 }

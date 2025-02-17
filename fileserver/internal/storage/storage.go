@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"mime/multipart"
 	"os"
 	"path/filepath"
 	"sort"
@@ -34,52 +33,33 @@ func NewStorage(path string) (*Storage, error) {
 	}, nil
 }
 
-func (s *Storage) Save(file multipart.File, header *multipart.FileHeader) error {
-	filePath := filepath.Join(s.path, header.Filename)
+func (s *Storage) Save(file *os.File, filename string) error {
+	filePath := filepath.Join(s.path, filename)
 
 	if _, err := os.Stat(filePath); err == nil {
 		return &fileErr{filepath: filePath, msg: "file already exists"}
 	}
 
-	err := saveFile(file, filePath)
-	if err != nil {
-		return err
-	}
-	return nil
-
+	return saveFile(file, filePath)
 }
 
 func (s *Storage) Get(filename string) (*os.File, error) {
 	filePath := filepath.Join(s.path, filename)
-	outFile, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	return outFile, nil
+	return os.Open(filePath)
 }
 
-func (s *Storage) Update(file multipart.File, header *multipart.FileHeader) error {
-	filePath := filepath.Join(s.path, header.Filename)
+func (s *Storage) Update(file *os.File, filename string) error {
+	filePath := filepath.Join(s.path, filename)
 	if _, err := os.Stat(filePath); err != nil {
-		return &fileErr{filepath: filePath, msg: "File are not exists"}
+		return &fileErr{filepath: filePath, msg: "file does not exist"}
 	}
 
-	if err := saveFile(file, filePath); err != nil {
-		return err
-	}
-
-	return nil
+	return saveFile(file, filePath)
 }
 
 func (s *Storage) Delete(filename string) error {
 	filePath := filepath.Join(s.path, filename)
-
-	err := os.Remove(filePath)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return os.Remove(filePath)
 }
 
 func (s *Storage) GetFiles() ([]string, error) {
@@ -114,16 +94,14 @@ func closeFile(f *os.File) {
 	}
 }
 
-// saveFile saving file with given name OR overriding it
-func saveFile(file multipart.File, filePath string) error {
+// saveFile saves file with given name OR overrides it
+func saveFile(file *os.File, filePath string) error {
 	outFile, err := os.Create(filePath)
-	defer closeFile(outFile)
 	if err != nil {
 		return err
 	}
-	if _, err := io.Copy(outFile, file); err != nil {
-		return err
-	}
+	defer closeFile(outFile)
 
-	return nil
+	_, err = io.Copy(outFile, file)
+	return err
 }
