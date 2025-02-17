@@ -9,8 +9,8 @@ type Config struct {
 func NewConfig() *Config {
 	return &Config{
 		BindPort:   "",
-		BindHost:   "0.0.0.0", //костылек, в задании не задается хост
-		ConfigPath: "./data",  //костылек, в задании не задается путь
+		BindHost:   "0.0.0.0", // костылек, в задании не задается хост
+		ConfigPath: "./data",  // костылек, в задании не задается путь
 	}
 }
 
