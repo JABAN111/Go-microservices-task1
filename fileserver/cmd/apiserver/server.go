@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 
 	"yadro.com/course/internal/apiserver"
@@ -22,36 +21,31 @@ var (
 
 func init() {
 	flag.StringVar(&configPath, "config", defaultConfigPath, "Path to config file")
+	flag.Parse()
 }
 
-func parseConfig() (*apiserver.Config, error) {
+func getConfig() *apiserver.Config {
 	config := apiserver.NewConfig()
 
 	if err := cleanenv.ReadEnv(config); err == nil {
 		log.Println("Using environment variables for application")
-		return config, nil
+		return config
 	}
 
 	log.Printf("Cannot find environment variables, trying config file %s...", configPath)
 
 	if err := cleanenv.ReadConfig(configPath, config); err == nil {
 		log.Printf("Using config file with path %s", config)
-		return config, nil
+		return config
 	}
 
-	err := fmt.Errorf("failed to load configuration from file or environment variables")
-	log.Println(err)
+	log.Println("failed to load configuration from file or environment variables")
 
-	return nil, err
+	return apiserver.NewConfig()
 }
 
 func main() {
-	flag.Parse()
-
-	config, err := parseConfig()
-	if err != nil {
-		log.Panicf("Error while reading a config: %v", err)
-	}
+	config := getConfig()
 	fStorage, err := storage.NewStorage(defaultStoragePath)
 	if err != nil {
 		log.Panicf("Error while creating storage with path %s: %v", defaultStoragePath, err)

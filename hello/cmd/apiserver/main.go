@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 
 	"github.com/ilyakaznacheev/cleanenv"
@@ -22,30 +21,27 @@ func init() {
 	flag.Parse()
 }
 
-func parseConfig(configPath string) (*apiserver.Config, error) {
+func getConfig(configPath string) *apiserver.Config {
 	config := apiserver.NewConfig()
 
 	if err := cleanenv.ReadEnv(config); err == nil {
 		log.Println("Using environment variables for configuration")
-		return config, nil
+		return config
 	}
 
 	log.Printf("Cannot find environment variables, trying config file %s...", configPath)
 
 	if err := cleanenv.ReadConfig(configPath, config); err == nil {
 		log.Printf("Using config file: %s", configPath)
-		return config, nil
+		return config
 	}
 
-	return nil, fmt.Errorf("failed to load configuration from file or environment variables, using default")
+	log.Printf("Failed to load configuration from file or environment variables, using default configuration")
+	return apiserver.NewConfig()
 }
 
 func main() {
-	config, err := parseConfig(configPath)
-	if err != nil {
-		log.Panicf("Error while reading a config: %v", err)
-	}
-
+	config := getConfig(configPath)
 	s := apiserver.NewServer(config)
 	s.Run()
 }
