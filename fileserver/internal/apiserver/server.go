@@ -143,8 +143,5 @@ func (s *Server) addRoutes() {
 func (s *Server) Run() {
 	serverAddress := s.config.BindHost + ":" + s.config.BindPort
 	log.Printf("File server started on address %s", serverAddress)
-
-	if err := http.ListenAndServe(serverAddress, s.mux); err != nil {
-		log.Fatalf("Cannot start server: %v", err)
-	}
+	log.Fatal(http.ListenAndServe(serverAddress, s.mux))
 }
