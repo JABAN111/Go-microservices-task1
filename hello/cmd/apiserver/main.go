@@ -24,18 +24,9 @@ func init() {
 func getConfig(configPath string) *apiserver.Config {
 	config := apiserver.NewConfig()
 
-	if err := cleanenv.ReadEnv(config); err == nil {
-		if config.BindPort != "" {
-			log.Println("Using environment variables for configuration")
-			return config
-		}
-	}
-
-	log.Printf("Cannot find environment variables, trying config file %s...", configPath)
-
 	if err := cleanenv.ReadConfig(configPath, config); err == nil {
 		if config.BindPort != "" {
-			log.Printf("Using config file: %s", configPath)
+			log.Printf("Using configuration: %s", config)
 			return config
 		}
 	}
