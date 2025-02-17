@@ -114,7 +114,7 @@ func (s *Server) handleGetFile() http.HandlerFunc {
 		w.Header().Set("Content-Transfer-Encoding", "binary")
 
 		if _, err := io.Copy(w, file); err != nil {
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			log.Printf("Failed to write response: %v", err)
 		}
 	}
 }
