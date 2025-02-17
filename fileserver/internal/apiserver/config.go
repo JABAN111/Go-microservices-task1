@@ -8,6 +8,14 @@ type Config struct {
 
 func NewConfig() *Config {
 	return &Config{
+		BindPort:   "",
+		BindHost:   "0.0.0.0", //костылек, в задании не задается хост
+		ConfigPath: "./data",  //костылек, в задании не задается путь
+	}
+}
+
+func DefaultConfig() *Config {
+	return &Config{
 		BindPort:   "9001",
 		BindHost:   "0.0.0.0",
 		ConfigPath: "./data",
