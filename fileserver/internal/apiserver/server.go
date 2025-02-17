@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
-	"os"
 	"yadro.com/course/internal/storage"
 )
 
@@ -29,124 +29,139 @@ func NewServer(config *Config, storage *storage.Storage) *Server {
 	return &s
 }
 
-func (s *Server) handlePing() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, err := fmt.Fprintf(w, "pong\n")
-		if err != nil {
-			log.Fatalf("failed to write pong: %v", err)
-		}
-	}
-}
-
 func (s *Server) handleSaveFile() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusCreated)
-		//TODO theoretically it's possible to delete, cause default max memory 32 mb too
 		if err := r.ParseMultipartForm(maxMemory); err != nil {
-			log.Fatalf("failed to parse multipart form: %v", err)
+			log.Printf("Failed to parse multipart form: %v", err)
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
 		}
 
 		file, header, err := r.FormFile("file")
 		if err != nil {
-			log.Fatalf("failed to parse file: %v", err)
-		}
-
-		s.storage.Save(file, header)
-		log.Printf("file uploaded successfully")
-		fmt.Fprintf(w, "pong\n")
-
-	}
-}
-func (s *Server) handleUpdateFile() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusAccepted)
-		if err := r.ParseMultipartForm(maxMemory); err != nil {
-			log.Fatalf("failed to parse multipart form: %v", err)
-		}
-
-		file, header, err := r.FormFile("file")
-		if err != nil {
-			log.Fatalf("failed to parse file: %v", err)
-		}
-
-		s.storage.Update(file, header) //TODO process
-		log.Printf("file uploaded successfully")
-		fmt.Fprintf(w, "file uploaded successfully")
-	}
-}
-
-func (s *Server) handleListFiles() func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-
-		files, err := s.storage.GetFilesAsString()
-
-		if err != nil {
-			//TODO
+			log.Printf("Failed to parse file: %v", err)
+			http.Error(w, "Bad Request", http.StatusBadRequest)
 			return
 		}
-
-		if _, err := fmt.Fprintf(w, files); err != nil {
-			log.Fatalf("failed to write response: %v", err)
-			return
-		}
-	}
-}
-
-func (s *Server) handleGetFile() func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		filename := r.PathValue("filename")
-		file, err := s.storage.Get(filename)
-		defer func(file *os.File) {
+		defer func(file multipart.File) {
 			err := file.Close()
 			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-			}
-		}(file)
-		if err != nil {
-			//TODO
-			w.WriteHeader(http.StatusNotFound)
-			if _, err := fmt.Fprintf(w, "file not found"); err != nil {
+				log.Printf("Failed to close file: %v", err)
 				return
 			}
+		}(file)
+
+		if err := s.storage.Save(file, header); err != nil {
+			log.Printf("Failed to save file: %v", err)
+			http.Error(w, "Conflict", http.StatusConflict)
 			return
 		}
-		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
-		w.Header().Set("Content-Transfer-Encoding", "binary")
-		w.WriteHeader(http.StatusOK)
-		if _, err := io.Copy(w, file); err != nil {
-			//TODO
-			return
-		}
-	}
-}
-func (s *Server) handleDeleteFile() func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		err := s.storage.Delete(r.PathValue("filename"))
-		if err != nil {
-			w.WriteHeader(http.StatusNotFound)
-		}
-		if _, err := fmt.Fprintf(w, "file deleted"); err != nil {
+
+		log.Printf("File: %s uploaded successfully", header.Filename)
+		w.WriteHeader(http.StatusCreated)
+		if _, err := fmt.Fprintln(w, header.Filename); err != nil {
+			log.Printf("Failed to write response: %v", err)
 			return
 		}
 	}
 }
 
-func addRoutes(
-	s *Server,
-) {
+func (s *Server) handleUpdateFile() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseMultipartForm(maxMemory); err != nil {
+			log.Printf("Failed to parse multipart form: %v", err)
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
+		}
+
+		file, header, err := r.FormFile("file")
+		if err != nil {
+			log.Printf("Failed to parse file: %v", err)
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
+		}
+		defer file.Close()
+
+		if err := s.storage.Update(file, header); err != nil {
+			log.Printf("Failed to update file: %v", err)
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+
+		log.Println("File updated successfully")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, "File updated successfully")
+	}
+}
+
+func (s *Server) handleListFiles() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		files, err := s.storage.GetFilesAsString()
+		if err != nil {
+			log.Printf("Failed to list files: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		if _, err := fmt.Fprintln(w, files); err != nil {
+			log.Printf("Failed to write response: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
+	}
+}
+
+func (s *Server) handleGetFile() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		filename := r.PathValue("filename")
+
+		file, err := s.storage.Get(filename)
+		if err != nil {
+			log.Printf("File not found: %v", err)
+			http.Error(w, "File not found", http.StatusNotFound)
+			return
+		}
+		defer file.Close()
+
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
+		w.Header().Set("Content-Transfer-Encoding", "binary")
+
+		if _, err := io.Copy(w, file); err != nil {
+			log.Printf("Failed to send file: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
+	}
+}
+
+func (s *Server) handleDeleteFile() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		filename := r.PathValue("filename")
+
+		err := s.storage.Delete(filename)
+		if err != nil {
+			log.Printf("File not found: %v", err)
+			http.Error(w, "File not found", http.StatusNotFound)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		if _, err := fmt.Fprintln(w, "File deleted"); err != nil {
+			log.Printf("Failed to write response: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
+	}
+}
+
+func addRoutes(s *Server) {
 	s.mux.HandleFunc("POST /files", s.handleSaveFile())
 	s.mux.HandleFunc("PUT /files/{filename}", s.handleUpdateFile())
 	s.mux.HandleFunc("GET /files/{filename}", s.handleGetFile())
 	s.mux.HandleFunc("GET /files", s.handleListFiles())
 	s.mux.HandleFunc("DELETE /files/{filename}", s.handleDeleteFile())
 	s.mux.Handle("/", http.NotFoundHandler())
-	log.Println("Finished registring routes...")
 
+	log.Println("Finished registering routes...")
 }
 
 func (s *Server) Run() {
@@ -157,6 +172,6 @@ func (s *Server) Run() {
 
 	err := http.ListenAndServe(serverAddress, s.mux)
 	if err != nil {
-		log.Panicf("Cannot started a server application, reason: %v", err)
+		log.Fatalf("Cannot start server: %v", err)
 	}
 }

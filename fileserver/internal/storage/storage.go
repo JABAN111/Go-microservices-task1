@@ -34,19 +34,19 @@ func NewStorage(path string) (*Storage, error) {
 	}, nil
 }
 
-// TODO process duplicate
 func (s *Storage) Save(file multipart.File, header *multipart.FileHeader) error {
 	filePath := filepath.Join(s.path, header.Filename)
-	outFile, err := os.Create(filePath)
-	defer closeFile(outFile)
+
+	if _, err := os.Stat(filePath); err == nil {
+		return &fileErr{filepath: filePath, msg: "file already exists"}
+	}
+
+	err := saveFile(file, filePath)
 	if err != nil {
 		return err
 	}
-	if _, err := io.Copy(outFile, file); err != nil {
-		return err
-	}
-
 	return nil
+
 }
 
 func (s *Storage) Get(filename string) (*os.File, error) {
@@ -64,7 +64,7 @@ func (s *Storage) Update(file multipart.File, header *multipart.FileHeader) erro
 		return &fileErr{filepath: filePath, msg: "File are not exists"}
 	}
 
-	if err := s.Save(file, header); err != nil {
+	if err := saveFile(file, filePath); err != nil {
 		return err
 	}
 
@@ -101,21 +101,29 @@ func (s *Storage) GetFiles() ([]string, error) {
 }
 
 func (s *Storage) GetFilesAsString() (string, error) {
-	res, err := s.GetFiles()
+	filesList, err := s.GetFiles()
 	if err != nil {
 		return "", err
 	}
-
-	var sb strings.Builder
-	for _, v := range res {
-		sb.WriteString(v)
-		sb.WriteString("\n")
-	}
-	return sb.String(), nil
+	return strings.Join(filesList, "\n"), nil
 }
 
 func closeFile(f *os.File) {
 	if err := f.Close(); err != nil {
 		log.Fatal("Failed to close file")
 	}
+}
+
+// saveFile saving file with given name OR overriding it
+func saveFile(file multipart.File, filePath string) error {
+	outFile, err := os.Create(filePath)
+	defer closeFile(outFile)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(outFile, file); err != nil {
+		return err
+	}
+
+	return nil
 }
