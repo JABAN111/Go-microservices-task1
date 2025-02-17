@@ -32,7 +32,7 @@ func getConfig() *apiserver.Config {
 		return config
 	}
 
-	log.Printf("Cannot find environment variables, trying config file %s...", configPath)
+	log.Printf("Cannot find environment variables, trying config file %s....", configPath)
 
 	if err := cleanenv.ReadConfig(configPath, config); err == nil {
 		log.Printf("Using config file with path %s", config)
