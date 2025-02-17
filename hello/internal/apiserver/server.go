@@ -58,7 +58,6 @@ func addRoutes(
 ) {
 	s.mux.HandleFunc("GET /ping", s.handlePing())
 	s.mux.HandleFunc("GET /hello", s.handleHello())
-	s.mux.Handle("/", http.NotFoundHandler())
 }
 
 func (s *Server) Run() {
