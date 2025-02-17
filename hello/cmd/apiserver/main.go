@@ -19,32 +19,28 @@ var (
 
 func init() {
 	flag.StringVar(&configPath, "config", defaultConfigPath, "Path to config file")
+	flag.Parse()
 }
 
-func parseConfig() (*apiserver.Config, error) {
+func parseConfig(configPath string) (*apiserver.Config, error) {
 	config := apiserver.NewConfig()
 
 	if err := cleanenv.ReadConfig(configPath, config); err == nil {
-		log.Printf("Using config file with path %s", config)
+		log.Printf("Using config file: %s", configPath)
 		return config, nil
 	}
-
 	log.Printf("Cannot read config file %s, trying environment variables...", configPath)
 
 	if err := cleanenv.ReadEnv(config); err == nil {
-		log.Println("Using environment variables for application")
+		log.Println("Using environment variables for configuration")
 		return config, nil
 	}
-	err := fmt.Errorf("failed to load configuration from file or environment variables")
-	log.Println(err)
 
-	return nil, err
+	return nil, fmt.Errorf("failed to load configuration from file or environment variables, using default")
 }
 
 func main() {
-	flag.Parse()
-
-	config, err := parseConfig()
+	config, err := parseConfig(configPath)
 	if err != nil {
 		log.Panicf("Error while reading a config: %v", err)
 	}
