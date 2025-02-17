@@ -25,14 +25,15 @@ func init() {
 func parseConfig(configPath string) (*apiserver.Config, error) {
 	config := apiserver.NewConfig()
 
-	if err := cleanenv.ReadConfig(configPath, config); err == nil {
-		log.Printf("Using config file: %s", configPath)
-		return config, nil
-	}
-	log.Printf("Cannot read config file %s, trying environment variables...", configPath)
-
 	if err := cleanenv.ReadEnv(config); err == nil {
 		log.Println("Using environment variables for configuration")
+		return config, nil
+	}
+
+	log.Printf("Cannot find environment variables, trying config file %s...", configPath)
+
+	if err := cleanenv.ReadConfig(configPath, config); err == nil {
+		log.Printf("Using config file: %s", configPath)
 		return config, nil
 	}
 
