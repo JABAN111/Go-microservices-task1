@@ -138,7 +138,6 @@ func (s *Server) addRoutes() {
 	s.mux.HandleFunc("GET /files/{filename}", s.handleGetFile())
 	s.mux.HandleFunc("GET /files", s.handleListFiles())
 	s.mux.HandleFunc("DELETE /files/{filename}", s.handleDeleteFile())
-	s.mux.Handle("/", http.NotFoundHandler())
 }
 
 func (s *Server) Run() {
