@@ -159,7 +159,7 @@ func (s *Server) Run() {
 }
 
 func convertToOSFile(mf multipart.File) (*os.File, error) {
-	tmpFile, err := os.CreateTemp("/tmp/fileServer", "upload-*")
+	tmpFile, err := os.CreateTemp("", "upload-*")
 	if err != nil {
 		return nil, err
 	}
