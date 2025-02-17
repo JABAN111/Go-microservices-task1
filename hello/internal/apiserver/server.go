@@ -12,22 +12,22 @@ type Server struct {
 }
 
 func NewServer(config *Config) *Server {
-	s := Server{
-		http.NewServeMux(),
-		config,
+	return &Server{
+		mux:    http.NewServeMux(),
+		config: config,
 	}
+}
 
-	return &s
+func writeResponse(w http.ResponseWriter, statusCode int, format string, args ...interface{}) {
+	w.WriteHeader(statusCode)
+	if _, err := fmt.Fprintf(w, format, args...); err != nil {
+		log.Printf("failed to write response: %v", err)
+	}
 }
 
 func (s *Server) handlePing() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, err := fmt.Fprintf(w, "pong\n")
-		if err != nil {
-			log.Fatalf("failed to write pong: %v", err)
-			return
-		}
+		writeResponse(w, http.StatusOK, "pong\n")
 	}
 }
 
@@ -35,39 +35,27 @@ func (s *Server) handleHello() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		name := r.URL.Query().Get("name")
 
-		if len(name) == 0 {
-			w.WriteHeader(http.StatusBadRequest)
-			_, err := fmt.Fprintf(w, "empty name\n")
-			if err != nil {
-				log.Fatalf("failed to write hello: %v", err)
-			}
+		if name == "" {
+			writeResponse(w, http.StatusBadRequest, "empty name\n")
 			return
 		}
 
-		w.WriteHeader(http.StatusOK)
-		_, err := fmt.Fprintf(w, "Hello, %s!\n", name)
-		if err != nil {
-			log.Fatalf("failed to write hello: %v", err)
-		}
-
+		writeResponse(w, http.StatusOK, "Hello, %s!\n", name)
 	}
 }
 
-func addRoutes(
-	s *Server,
-) {
+func (s *Server) addRoutes() {
 	s.mux.HandleFunc("GET /ping", s.handlePing())
 	s.mux.HandleFunc("GET /hello", s.handleHello())
 }
 
 func (s *Server) Run() {
-	addRoutes(s)
+	s.addRoutes()
 
 	serverAddress := s.config.BindHost + ":" + s.config.BindPort
-	log.Printf("Server started on address %s", serverAddress)
+	log.Printf("Server started on %s", serverAddress)
 
-	err := http.ListenAndServe(serverAddress, s.mux)
-	if err != nil {
-		log.Panicf("Cannot started a server application, reason: %v", err)
+	if err := http.ListenAndServe(serverAddress, s.mux); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }
